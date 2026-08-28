@@ -1,44 +1,48 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-
-
-class nombre(BaseModel):
-    name : str
-
+from conexion import get_connection,initdb
 app = FastAPI()
 
-"""@app.post("/nombre")
-def recibirnombre(nombre : nombre):
-    return nombre
-
-
-@app.get("/")
-def read_root():
-    return"hola, esta es la api de juan"
-
-
-@app.get("/otra")
-def otracosa():
-    return "bienvenido a la otra ruta" 
-"""
-#actividad : hacer un endpoint de tipo get y uno de post que guarde en memoria y que tenga como minimo 
-
-menu =   [{"titulo":"lista de objetos"},
-            {"nombre":"tomate","precio":"1000'","utilidad":"fruta"},
-            {"nombre":"queso","precio":"2500","utilidad":"cheddar"},
-            {"nombre":"papas","precio":"15000 x kg","utilidad":"papa"},#no tengo papá
-            {"nombre":"milanesa","precio":"13000 x kg","utilidad":"milanesa"},
-]
-class nvmn(BaseModel):
+class Producto(BaseModel):
     nombre : str
+    stock : int
     precio : float
-    utilida : str
 
-@app.get("/menu")
-def menu():
-    return menu
+@app.on_event("startup")
+def startup():
+    print("iniciando base de datos")
+    initdb()
 
-@app.post("/agregar al menu")
-def recibircomida(comida:nvmn):
-    menu.append(comida)
-    return "el alimento se agrego al menu"
+@app.post("/agregar_producto")
+def postproduct(producto : Producto):
+    conexion = get_connection()
+    conexion.execute("INSERT INTO productos(nombre, stock, precio) VALUES (?,?,?)",
+    (producto.nombre, producto.stock, producto.precio))
+    conexion.commit()
+    conexion.close()
+    return  f"dato subido{producto}"
+
+
+@app.get("/leer_productos")
+def getproductos():
+    conexion = get_connection()
+    res = conexion.execute("SELECT * FROM productos").fetchall()
+    return ([dict(item)for item in res])
+
+
+@app.delete("/elimar_producto /{id}")
+def delete_prod(id : int):
+    conexion = get_connection()
+    conexion.execute("DELETE FROM productos WHERE id = ?",(id,))
+    conexion.commit()
+    conexion.close()
+    return f"se elimmino el producto de id {id}"
+
+@app.put("/actualizar_producto")
+def update_product( id : int,producto : Producto):
+    conexion = get_connection()
+    conexion.Execute("UPDATE productos SET nombre = ?, stock = ?, precio = ? WHERE id = ?",
+                        (producto.nombre, producto.stock, producto.precio, id))
+    conexion.commit()
+    conexion.close()
+    return "dato actualizado"
